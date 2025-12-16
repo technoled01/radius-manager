@@ -283,8 +283,8 @@ class DatabaseManager:
                     WHEN EXISTS (
                         SELECT 1 FROM radcheck rc2 
                         WHERE rc2.username = rc.username 
-                        AND rc2.attribute = 'Auth-Type' 
-                        AND rc2.value = 'Reject'
+                        AND rc2.attribute = 'Login-Time' 
+                        AND rc2.value = 'Never'
                     ) THEN 'Заблокирован'
                     ELSE 'Активен'
                 END as status,
@@ -441,12 +441,12 @@ class DatabaseManager:
                 # Добавляем атрибут блокировки
                 cursor.execute(
                     "INSERT INTO radcheck (username, attribute, op, value) VALUES (?, ?, ?, ?)",
-                    (username, 'Auth-Type', ':=', 'Reject')
+                    (username, 'Login-Time', ':=', 'Never')
                 )
             else:
                 # Удаляем атрибут блокировки
                 cursor.execute(
-                    "DELETE FROM radcheck WHERE username = ? AND attribute = 'Auth-Type' AND value = 'Reject'",
+                    "DELETE FROM radcheck WHERE username = ? AND attribute = 'Login-Time' AND value = 'Never'",
                     (username,)
                 )
             
