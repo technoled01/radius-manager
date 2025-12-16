@@ -414,7 +414,6 @@ class AddUserTab:
                         ))
         
         if self.db.add_user(user, extra_attributes):
-            self.logger.log(f"Добавлен пользователь: {username}")
             messagebox.showinfo("Успех", f"Пользователь '{username}' добавлен!")
             
             self._clear_form()

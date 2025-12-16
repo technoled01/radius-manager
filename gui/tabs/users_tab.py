@@ -272,7 +272,6 @@ class UsersTab:
         
         if new_password:
             if self.db.update_user_password(username, new_password):
-                self.logger.log(f"Изменен пароль для: {username}")
                 messagebox.showinfo("Успех", f"Пароль для пользователя '{username}' изменен!")
                 self.load_users()
             else:
@@ -312,7 +311,6 @@ class UsersTab:
         action = "заблокирован" if block else "разблокирован"
         
         if self.db.block_user(username, block):
-            self.logger.log(f"Пользователь {username} {action}")
             messagebox.showinfo("Успех", f"Пользователь '{username}' {action}!")
             self.load_users()
         else:
@@ -332,7 +330,6 @@ class UsersTab:
             return
         
         if self.db.delete_user(username):
-            self.logger.log(f"Удален пользователь: {username}")
             messagebox.showinfo("Успех", f"Пользователь '{username}' удален!")
             self.load_users()
         else:
