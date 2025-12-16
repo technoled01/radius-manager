@@ -405,9 +405,7 @@ class GroupsTab:
             "Изменить Check атрибут", 
             self.selected_group, 
             'check',
-            values[0],  # attribute
-            values[1],  # op
-            values[2]   # value
+            (values[0], values[1], values[2])  # Все три значения как один кортеж
         )
         
         result = dialog.show()
@@ -448,9 +446,7 @@ class GroupsTab:
             "Изменить Reply атрибут", 
             self.selected_group, 
             'reply',
-            values[0],  # attribute
-            values[1],  # op
-            values[2]   # value
+            (values[0], values[1], values[2])  # Все три значения как один кортеж
         )
         
         result = dialog.show()

@@ -159,7 +159,7 @@ class DatabaseManager:
                     id INT IDENTITY(1,1) PRIMARY KEY,
                     username NVARCHAR(64) NOT NULL,
                     attribute NVARCHAR(64) NOT NULL,
-                    op CHAR(2) DEFAULT '==' NOT NULL,
+                    op CHAR(2) DEFAULT ':=' NOT NULL,
                     value NVARCHAR(253) NOT NULL
                 )
             """)
@@ -223,7 +223,7 @@ class DatabaseManager:
                     id INT IDENTITY(1,1) PRIMARY KEY,
                     groupname NVARCHAR(64) NOT NULL,
                     attribute NVARCHAR(64) NOT NULL,
-                    op CHAR(2) DEFAULT '==' NOT NULL,
+                    op CHAR(2) DEFAULT ':=' NOT NULL,
                     value NVARCHAR(253) NOT NULL
                 )
             """)

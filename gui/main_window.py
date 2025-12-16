@@ -196,6 +196,8 @@ class RadiusManagerMainWindow:
         if self.db.connection_status:
             self.users_tab.load_users()
             self.groups_tab.load_groups()
+            self.add_user_tab.update_groups()   # Добавлено
+            self.bulk_tab.update_groups()       # Добавлено
             self.logger.log("Данные обновлены")
         else:
             self.logger.log("Нет подключения к БД. Подключитесь сначала.")

@@ -161,7 +161,7 @@ class AttributeDialog:
         self.attr_entry.pack(padx=20, pady=(5, 0))
         
         ttk.Label(self.dialog, text="Оператор:").pack(anchor=tk.W, padx=20, pady=(10, 0))
-        self.op_var = tk.StringVar(value="==" if attr_type == 'check' else "=")
+        self.op_var = tk.StringVar(value=":=" if attr_type == 'check' else "=")
         self.op_combo = ttk.Combobox(self.dialog, textvariable=self.op_var, 
                                     values=["==", ":=", "=", "+=", "-=", "^="],
                                     width=10, state="readonly")
