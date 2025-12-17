@@ -339,10 +339,10 @@ class DatabaseManager:
         try:
             cursor = self.conn.cursor()
             
-            # Добавляем пароль
+            # Добавляем пароль (правильный порядок: UserName, Attribute, Value, op)
             cursor.execute(
-                "INSERT INTO radcheck (username, attribute, op, value) VALUES (?, ?, ?, ?)",
-                (user.username, 'Cleartext-Password', ':=', user.password)
+                "INSERT INTO radcheck (UserName, Attribute, Value, op) VALUES (?, ?, ?, ?)",
+                (user.username, 'Cleartext-Password', user.password, ':=')
             )
             
             # Добавляем в группу
@@ -354,37 +354,37 @@ class DatabaseManager:
             # Срок действия
             if user.expiration:
                 cursor.execute(
-                    "INSERT INTO radcheck (username, attribute, op, value) VALUES (?, ?, ?, ?)",
-                    (user.username, 'Expiration', ':=', user.expiration)
+                    "INSERT INTO radcheck (UserName, Attribute, Value, op) VALUES (?, ?, ?, ?)",
+                    (user.username, 'Expiration', user.expiration, ':=')
                 )
             
             # Ограничение одновременных сессий
             if user.simultaneous_use and int(user.simultaneous_use) > 1:
                 cursor.execute(
-                    "INSERT INTO radcheck (username, attribute, op, value) VALUES (?, ?, ?, ?)",
-                    (user.username, 'Simultaneous-Use', ':=', user.simultaneous_use)
+                    "INSERT INTO radcheck (UserName, Attribute, Value, op) VALUES (?, ?, ?, ?)",
+                    (user.username, 'Simultaneous-Use', user.simultaneous_use, ':=')
                 )
             
-            # Session-Timeout
+            # Session-Timeout (для radreply тоже проверяем порядок)
             if user.session_timeout and int(user.session_timeout) != 3600:
                 cursor.execute(
-                    "INSERT INTO radreply (username, attribute, op, value) VALUES (?, ?, ?, ?)",
-                    (user.username, 'Session-Timeout', '=', user.session_timeout)
+                    "INSERT INTO radreply (UserName, Attribute, Value, op) VALUES (?, ?, ?, ?)",
+                    (user.username, 'Session-Timeout', user.session_timeout, '=')
                 )
             
             # Idle-Timeout
             if user.idle_timeout and int(user.idle_timeout) != 0:
                 cursor.execute(
-                    "INSERT INTO radreply (username, attribute, op, value) VALUES (?, ?, ?, ?)",
-                    (user.username, 'Idle-Timeout', '=', user.idle_timeout)
+                    "INSERT INTO radreply (UserName, Attribute, Value, op) VALUES (?, ?, ?, ?)",
+                    (user.username, 'Idle-Timeout', user.idle_timeout, '=')
                 )
             
             # Дополнительные атрибуты
             if extra_attributes:
                 for attr in extra_attributes:
                     cursor.execute(
-                        "INSERT INTO radreply (username, attribute, op, value) VALUES (?, ?, ?, ?)",
-                        (user.username, attr.attribute, attr.op, attr.value)
+                        "INSERT INTO radreply (UserName, Attribute, Value, op) VALUES (?, ?, ?, ?)",
+                        (user.username, attr.attribute, attr.value, attr.op)
                     )
             
             self.conn.commit()
@@ -408,14 +408,14 @@ class DatabaseManager:
             
             # Удаляем старые пароли
             cursor.execute(
-                "DELETE FROM radcheck WHERE username = ? AND attribute LIKE '%Password'",
+                "DELETE FROM radcheck WHERE UserName = ? AND Attribute LIKE '%Password'",
                 (username,)
             )
             
-            # Добавляем новый пароль
+            # Добавляем новый пароль (правильный порядок)
             cursor.execute(
-                "INSERT INTO radcheck (username, attribute, op, value) VALUES (?, ?, ?, ?)",
-                (username, 'Cleartext-Password', ':=', new_password)
+                "INSERT INTO radcheck (UserName, Attribute, Value, op) VALUES (?, ?, ?, ?)",
+                (username, 'Cleartext-Password', new_password, ':=')
             )
             
             self.conn.commit()
@@ -603,9 +603,9 @@ class DatabaseManager:
             
             for row in cursor.fetchall():
                 check_attrs.append(Attribute(
-                    attribute=row[0],
-                    op=row[1],
-                    value=row[2]
+                    attribute=row[0],  # attribute
+                    op=row[1],         # op
+                    value=row[2]       # value
                 ))
             
             # Reply атрибуты
@@ -618,9 +618,9 @@ class DatabaseManager:
             
             for row in cursor.fetchall():
                 reply_attrs.append(Attribute(
-                    attribute=row[0],
-                    op=row[1],
-                    value=row[2]
+                    attribute=row[0],  # attribute
+                    op=row[1],         # op
+                    value=row[2]       # value
                 ))
             
             cursor.close()
@@ -641,9 +641,13 @@ class DatabaseManager:
             else:
                 table = 'radgroupreply'
             
+            # Преобразуем к строкам
+            attribute_str = str(attr.attribute)
+            value_str = str(attr.value)
+            
             cursor.execute(
-                f"INSERT INTO {table} (groupname, attribute, op, value) VALUES (?, ?, ?, ?)",
-                (groupname, attr.attribute, attr.op, attr.value)
+                f"INSERT INTO {table} (groupname, attribute, value, op) VALUES (?, ?, ?, ?)",
+                (groupname, attribute_str, value_str, attr.op)
             )
             
             self.conn.commit()
@@ -662,6 +666,7 @@ class DatabaseManager:
     
     def delete_group_attribute(self, groupname: str, attr: Attribute, attr_type: str = 'check') -> bool:
         """Удаление атрибута группы"""
+        cursor = None
         try:
             cursor = self.conn.cursor()
             
@@ -670,9 +675,13 @@ class DatabaseManager:
             else:
                 table = 'radgroupreply'
             
+            # Преобразуем к строкам
+            attribute_str = str(attr.attribute)
+            value_str = str(attr.value)
+            
             cursor.execute(
-                f"DELETE FROM {table} WHERE groupname = ? AND attribute = ? AND op = ? AND value = ?",
-                (groupname, attr.attribute, attr.op, attr.value)
+                f"DELETE FROM {table} WHERE groupname = ? AND attribute = ? AND value = ? AND op = ?",
+                (groupname, attribute_str, value_str, attr.op)
             )
             
             self.conn.commit()
@@ -684,7 +693,8 @@ class DatabaseManager:
             return True
             
         except pyodbc.Error as e:
-            self.conn.rollback()
+            if cursor:
+                self.conn.rollback()
             if self.logger:
                 self.logger.log(f"Ошибка удаления атрибута: {str(e)}")
             return False
@@ -743,3 +753,174 @@ class DatabaseManager:
             if self.logger:
                 self.logger.log(f"Ошибка экспорта CSV: {str(e)}")
             return 0
+       
+        # Методы для работы с атрибутами пользователя
+    def get_user_attributes(self, username: str) -> Tuple[List[Attribute], List[Attribute]]:
+        """Получение атрибутов пользователя"""
+        check_attrs = []
+        reply_attrs = []
+        
+        if not self.connection_status:
+            return check_attrs, reply_attrs
+        
+        try:
+            cursor = self.conn.cursor()
+            
+            # Check атрибуты (исключаем пароль из списка)
+            # Исправленный порядок: Attribute, op, Value
+            cursor.execute("""
+                SELECT Attribute, op, Value 
+                FROM radcheck 
+                WHERE UserName = ? 
+                AND Attribute != 'Cleartext-Password'  -- Не показываем пароль
+                ORDER BY Attribute
+            """, (username,))
+            
+            for row in cursor.fetchall():
+                check_attrs.append(Attribute(
+                    attribute=row[0],  # Attribute
+                    op=row[1],         # op
+                    value=row[2]       # Value
+                ))
+            
+            # Reply атрибуты
+            cursor.execute("""
+                SELECT Attribute, op, Value 
+                FROM radreply 
+                WHERE UserName = ? 
+                ORDER BY Attribute
+            """, (username,))
+            
+            for row in cursor.fetchall():
+                reply_attrs.append(Attribute(
+                    attribute=row[0],  # Attribute
+                    op=row[1],         # op
+                    value=row[2]       # Value
+                ))
+            
+            cursor.close()
+            
+        except pyodbc.Error as e:
+            if self.logger:
+                self.logger.log(f"Ошибка получения атрибутов пользователя: {str(e)}")
+        
+        return check_attrs, reply_attrs
+    
+    def add_user_attribute(self, username: str, attr: Attribute, attr_type: str = 'check') -> bool:
+        """Добавление атрибута пользователя"""
+        try:
+            cursor = self.conn.cursor()
+            
+            if attr_type == 'check':
+                table = 'radcheck'
+            else:
+                table = 'radreply'
+            
+            # Преобразуем к строкам
+            attribute_str = str(attr.attribute)
+            value_str = str(attr.value)
+            
+            cursor.execute(
+                f"INSERT INTO {table} (UserName, Attribute, Value, op) VALUES (?, ?, ?, ?)",
+                (username, attribute_str, value_str, attr.op)
+            )
+            
+            self.conn.commit()
+            cursor.close()
+            
+            if self.logger:
+                self.logger.log(f"Добавлен {attr_type} атрибут '{attr.attribute}' для пользователя '{username}'")
+            
+            return True
+            
+        except pyodbc.Error as e:
+            self.conn.rollback()
+            if self.logger:
+                self.logger.log(f"Ошибка добавления атрибута пользователя: {str(e)}")
+            return False
+    
+    def delete_user_attribute(self, username: str, attr: Attribute, attr_type: str = 'check') -> bool:
+        """Удаление атрибута пользователя"""
+        cursor = None
+        try:
+            cursor = self.conn.cursor()
+            
+            if attr_type == 'check':
+                table = 'radcheck'
+            else:
+                table = 'radreply'
+            
+            # ВАЖНО: Преобразуем все значения к строкам
+            attribute_str = str(attr.attribute)
+            value_str = str(attr.value)
+            
+            # Отладочная информация
+            print(f"DEBUG delete_user_attribute:")
+            print(f"  Username: {username}")
+            print(f"  Attribute (orig): {attr.attribute}, type: {type(attr.attribute)}")
+            print(f"  Attribute (str): {attribute_str}, type: {type(attribute_str)}")
+            print(f"  Value (orig): {attr.value}, type: {type(attr.value)}")
+            print(f"  Value (str): {value_str}, type: {type(value_str)}")
+            print(f"  Op: {attr.op}")
+            
+            # Выполняем DELETE с преобразованными строками
+            cursor.execute(
+                f"DELETE FROM {table} WHERE UserName = ? AND Attribute = ? AND Value = ? AND op = ?",
+                (username, attribute_str, value_str, attr.op)
+            )
+            
+            rows_deleted = cursor.rowcount
+            print(f"  Rows deleted: {rows_deleted}")
+            
+            self.conn.commit()
+            cursor.close()
+            
+            if self.logger and rows_deleted > 0:
+                self.logger.log(f"Удален {attr_type} атрибут '{attr.attribute}' для пользователя '{username}'")
+            
+            return rows_deleted > 0
+            
+        except pyodbc.Error as e:
+            if cursor:
+                self.conn.rollback()
+            if self.logger:
+                self.logger.log(f"Ошибка удаления атрибута пользователя: {str(e)}")
+            return False
+        except Exception as e:
+            if cursor:
+                self.conn.rollback()
+            if self.logger:
+                self.logger.log(f"Неожиданная ошибка при удалении атрибута: {str(e)}")
+            return False
+    
+    def update_user_attribute(self, username: str, old_attr: Attribute, new_attr: Attribute, attr_type: str = 'check') -> bool:
+        """Обновление атрибута пользователя"""
+        try:
+            # Преобразуем старые значения к строкам
+            old_attribute_str = str(old_attr.attribute)
+            old_value_str = str(old_attr.value)
+            
+            # Преобразуем новые значения к строкам
+            new_attribute_str = str(new_attr.attribute)
+            new_value_str = str(new_attr.value)
+            
+            # Удаляем старый атрибут
+            if not self.delete_user_attribute(username, old_attr, attr_type):
+                return False
+            
+            # Добавляем новый атрибут
+            if not self.add_user_attribute(username, new_attr, attr_type):
+                # Пытаемся восстановить старый атрибут
+                self.add_user_attribute(username, old_attr, attr_type)
+                return False
+            
+            if self.logger:
+                self.logger.log(f"Обновлен {attr_type} атрибут для пользователя '{username}'")
+            
+            return True
+            
+        except pyodbc.Error as e:
+            self.conn.rollback()
+            if self.logger:
+                self.logger.log(f"Ошибка обновления атрибута пользователя: {str(e)}")
+            return False
